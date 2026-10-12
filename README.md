@@ -24,3 +24,34 @@ A high-integrity PostgreSQL data architecture designed for a spaced-repetition v
 ---
 
 ## 2. Database Schema & Indexing Strategy
+┌──────────┐         ┌──────────────┐         ┌─────────────────────┐
+│  users   │────┬───<│   catalogs   │────┬───<│        words        │
+└──────────┘    │    └──────────────┘    │    └─────────────────────┘
+│          │           │            │               │
+│          │           │            │               │
+▼          │           ▼            │               ▼
+┌───────────────────────┐  ┌────────────────────────────────────────┐
+│    practice_events    │  │           user_word_reviews            │
+│ (Immutable Event Log) │  │          (Materialized State)          │
+└───────────────────────┘  └────────────────────────────────────────┘
+### Performance Indexes
+Foreign keys in PostgreSQL do not automatically create indexes. The following B-Tree indexes prevent full table sequential scans during high-frequency joins and queue filtering:
+* `idx_catalogs_user_id`: Accelerates user library lookups.
+* `idx_words_catalog_id`: Speeds up deck-loading joins.
+* `idx_reviews_user_status`: Composite index on `(user_id, mastery_status)` for card-queue generation.
+* `idx_practice_events_user_time`: B-Tree index on `(user_id, reviewed_at DESC)` for
+
+---
+
+## 3. Directory Layout
+
+```text
+├── migrations/
+│   ├── 001_initial_schema.sql     # DDL for core tables and constraints
+│   └── 002_add_indexes.sql        # Performance indexes for foreign keys & queues
+├── seeds/
+│   ├── 001_seed_french_a1.sql     # Reference fixture: 100 foundational A1 words
+│   └── 002_simulate_user_activity.sql # Synthetic test: Copy-on-Write & review transactions
+├── .env.example                   # Sanitized database connection string template
+├── .gitignore                     # Git secret isolation (.env, OS cache)
+└── README.md                      # Architecture documentation
